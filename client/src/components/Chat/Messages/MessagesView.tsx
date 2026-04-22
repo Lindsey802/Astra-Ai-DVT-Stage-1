@@ -48,7 +48,7 @@ function MessagesViewContent({
               width: '100%',
             }}
           >
-            <div className="flex flex-col pb-9 pt-14 dark:bg-transparent">
+            <div className="flex flex-col pb-9 pt-14 bg-zinc-900/95 transition-all duration-200 dark:bg-zinc-900/95">
               {(_messagesTree && _messagesTree.length == 0) || _messagesTree === null ? (
                 <div
                   className={cn(
