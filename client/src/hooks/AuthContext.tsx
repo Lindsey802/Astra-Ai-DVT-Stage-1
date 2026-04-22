@@ -29,6 +29,7 @@ import {
 import { TAuthConfig, TUserContext, TAuthContext, TResError } from '~/common';
 import { SESSION_KEY, isSafeRedirect, getPostLoginRedirect } from '~/utils';
 import useTimeout from './useTimeout';
+import { isFrontendOnlyMode } from '~/utils/frontendOnly';
 import store from '~/store';
 
 const AuthContext = (import.meta.hot?.data?.__AuthContext ??
@@ -75,7 +76,7 @@ const AuthContextProvider = ({
         setToken(token);
         setTokenHeader(token);
         setIsAuthenticated(isAuthenticated);
-        if (isAuthenticated) {
+        if (isAuthenticated && !isFrontendOnlyMode()) {
           setQueriesEnabled(true);
         }
 
@@ -165,13 +166,29 @@ const AuthContextProvider = ({
     [logoutUser],
   );
 
-  const userQuery = useGetUserQuery({ enabled: !!(token ?? '') });
+  const userQuery = useGetUserQuery({ enabled: !!(token ?? '') && !isFrontendOnlyMode() });
 
   const login = (data: t.TLoginUser) => {
     loginUser.mutate(data);
   };
 
   const silentRefresh = useCallback(() => {
+    if (isFrontendOnlyMode()) {
+      setUserContext({
+        token: 'mock-token',
+        isAuthenticated: true,
+        user: {
+          id: 'mock-user',
+          username: 'astra-user',
+          name: 'Astra User',
+          role: SystemRoles.USER,
+          email: 'astra@example.com',
+        },
+        redirect: window.location.pathname.startsWith('/c/') ? undefined : '/c/new',
+      });
+      setQueriesEnabled(false);
+      return;
+    }
     if (authConfig?.test === true) {
       console.log('Test mode. Skipping silent refresh.');
       return;
@@ -228,8 +245,10 @@ const AuthContextProvider = ({
     if (userQuery.data) {
       setUser(userQuery.data);
     } else if (userQuery.isError) {
-      doSetError((userQuery.error as Error).message);
-      navigate(buildLoginRedirectUrl(), { replace: true });
+      if (!isFrontendOnlyMode()) {
+        doSetError((userQuery.error as Error).message);
+        navigate(buildLoginRedirectUrl(), { replace: true });
+      }
     }
     if (error != null && error && isAuthenticated) {
       doSetError(undefined);
