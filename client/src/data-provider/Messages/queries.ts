@@ -4,6 +4,8 @@ import type { UseQueryOptions, QueryObserverResult } from '@tanstack/react-query
 import { QueryKeys, dataService } from 'librechat-data-provider';
 import type * as t from 'librechat-data-provider';
 import { logger } from '~/utils';
+import { isFrontendOnlyMode } from '~/utils/frontendOnly';
+import { getMockMessagesByConversationId } from '~/utils/mockChats';
 
 export const useGetMessagesByConvoId = <TData = t.TMessage[]>(
   id: string,
@@ -14,6 +16,10 @@ export const useGetMessagesByConvoId = <TData = t.TMessage[]>(
   return useQuery<t.TMessage[], unknown, TData>(
     [QueryKeys.messages, id],
     async () => {
+      if (isFrontendOnlyMode()) {
+        return getMockMessagesByConversationId(id);
+      }
+
       const result = await dataService.getMessagesByConvoId(id);
       if (!location.pathname.includes('/c/new') && result?.length === 1) {
         const currentMessages = queryClient.getQueryData<t.TMessage[]>([QueryKeys.messages, id]);

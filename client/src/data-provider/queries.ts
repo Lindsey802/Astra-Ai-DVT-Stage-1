@@ -32,6 +32,8 @@ import type {
 } from 'librechat-data-provider';
 import type { ConversationCursorData } from '~/utils/convos';
 import { findConversationInInfinite, isNotFoundError } from '~/utils';
+import { isFrontendOnlyMode } from '~/utils/frontendOnly';
+import { getMockConversationPage } from '~/utils/mockChats';
 
 export const useGetPresetsQuery = (
   config?: UseQueryOptions<TPreset[]>,
@@ -93,15 +95,20 @@ export const useConversationsInfiniteQuery = (
       isArchived ? QueryKeys.archivedConversations : QueryKeys.allConversations,
       { isArchived, sortBy, sortDirection, tags, search },
     ],
-    queryFn: ({ pageParam }) =>
-      dataService.listConversations({
+    queryFn: ({ pageParam }) => {
+      if (isFrontendOnlyMode()) {
+        return Promise.resolve(getMockConversationPage());
+      }
+
+      return dataService.listConversations({
         isArchived,
         sortBy,
         sortDirection,
         tags,
         search,
         cursor: pageParam?.toString(),
-      }),
+      });
+    },
     getNextPageParam: (lastPage) => lastPage?.nextCursor ?? undefined,
     keepPreviousData: true,
     staleTime: 5 * 60 * 1000, // 5 minutes
