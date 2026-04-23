@@ -48,7 +48,7 @@ const NewChatButton = memo(function NewChatButton({
           href="/c/new"
           data-testid="new-chat-button"
           aria-label={localize('com_ui_new_chat')}
-          className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-surface-hover"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-transparent bg-white/5 transition-all duration-200 hover:border-white/10 hover:bg-white/10"
           onClick={handleClick}
         >
           <SquarePen className="h-5 w-5 text-text-primary" />
@@ -106,8 +106,10 @@ const NavIconButton = memo(function NavIconButton({
           aria-label={localize(link.title)}
           aria-pressed={isActive}
           className={cn(
-            'h-9 w-9 rounded-lg',
-            isActive ? 'bg-surface-active-alt text-text-primary' : 'text-text-secondary',
+            'h-9 w-9 rounded-xl border border-transparent bg-white/5 transition-all duration-200 hover:border-white/10 hover:bg-white/10',
+            isActive
+              ? 'border-violet-400/20 bg-violet-500/10 text-violet-300'
+              : 'text-text-secondary',
           )}
           onClick={handleClick}
         >
@@ -137,7 +139,7 @@ function ExpandedPanel({
   const toggleClick = expanded ? onCollapse : onExpand;
 
   return (
-    <div className="flex h-full flex-shrink-0 flex-col gap-2 border-r border-border-light bg-surface-primary-alt px-2 py-2">
+    <div className="flex h-full flex-shrink-0 flex-col gap-2 border-r border-white/10 bg-zinc-900 px-2 py-2 transition-all duration-200">
       <TooltipAnchor
         side="right"
         description={localize(toggleLabel)}
@@ -149,7 +151,7 @@ function ExpandedPanel({
             variant="ghost"
             aria-label={localize(toggleLabel)}
             aria-expanded={expanded}
-            className="h-9 w-9 rounded-lg"
+            className="h-9 w-9 rounded-xl border border-transparent bg-white/5 transition-all duration-200 hover:border-white/10 hover:bg-white/10"
             onClick={toggleClick}
           >
             <Sidebar aria-hidden="true" className="h-5 w-5 text-text-primary" />
@@ -157,7 +159,7 @@ function ExpandedPanel({
         }
       />
       <NewChatButton setActive={setActive} />
-      <div className="mx-2 border-b border-border-light" />
+      <div className="mx-2 border-b border-white/10" />
       <div className="flex flex-col gap-1 overflow-y-auto">
         {links.map((link) => (
           <NavIconButton
@@ -173,7 +175,7 @@ function ExpandedPanel({
       </div>
 
       <div className="mt-auto">
-        <Suspense fallback={<Skeleton className="h-9 w-9 rounded-lg" />}>
+        <Suspense fallback={<Skeleton className="h-9 w-9 rounded-xl border border-transparent bg-white/5 transition-all duration-200 hover:border-white/10 hover:bg-white/10" />}>
           <AccountSettings collapsed />
         </Suspense>
       </div>

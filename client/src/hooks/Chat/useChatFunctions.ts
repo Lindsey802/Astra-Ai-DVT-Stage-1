@@ -2,7 +2,7 @@ import { v4 } from 'uuid';
 import { cloneDeep } from 'lodash';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSetRecoilState, useResetRecoilState, useRecoilValue } from 'recoil';
+import { useSetRecoilState, useResetRecoilState } from 'recoil';
 import {
   Constants,
   QueryKeys,
@@ -29,10 +29,24 @@ import type { TAskFunction, ExtendedFile } from '~/common';
 import useSetFilesToDelete from '~/hooks/Files/useSetFilesToDelete';
 import useGetSender from '~/hooks/Conversations/useGetSender';
 import { logger, createDualMessageContent } from '~/utils';
-import store, { useGetEphemeralAgent } from '~/store';
+import store from '~/store';
 import { startupConfigKey } from '~/data-provider';
 import useUserKey from '~/hooks/Input/useUserKey';
 import { useAuthContext } from '~/hooks';
+
+const getMockReply = (input: string): string => {
+  const normalized = input.toLowerCase();
+
+  if (normalized.includes('hello')) {
+    return 'Hey 👋';
+  }
+
+  if (normalized.includes('code')) {
+    return 'Send it, I’ll take a look';
+  }
+
+  return `You said: ${input}`;
+};
 
 const logChatRequest = (request: Record<string, unknown>) => {
   logger.log('=====================================\nAsk function called with:');
@@ -69,8 +83,6 @@ export default function useChatFunctions({
   const { user } = useAuthContext();
   const queryClient = useQueryClient();
   const setFilesToDelete = useSetFilesToDelete();
-  const getEphemeralAgent = useGetEphemeralAgent();
-  const isTemporary = useRecoilValue(store.isTemporary);
   const { getExpiry } = useUserKey(immutableConversation?.endpoint ?? '');
   const setIsSubmitting = useSetRecoilState(store.isSubmittingFamily(index));
   const setShowStopButton = useSetRecoilState(store.showStopButtonByIndex(index));
@@ -90,7 +102,6 @@ export default function useChatFunctions({
       editedMessageId = null,
       isRegenerate = false,
       isContinued = false,
-      isEdited = false,
       overrideMessages,
       overrideFiles,
       addedConvo,
@@ -123,10 +134,7 @@ export default function useChatFunctions({
       return;
     }
 
-    const ephemeralAgent = getEphemeralAgent(conversationId ?? Constants.NEW_CONVO);
-    const isEditOrContinue = isEdited || isContinued;
-
-    let currentMessages: TMessage[] | null = overrideMessages ?? getMessages() ?? [];
+    let currentMessages: TMessage[] = overrideMessages ?? getMessages() ?? [];
 
     if (conversation?.promptPrefix) {
       conversation.promptPrefix = replaceSpecialVars({
@@ -312,39 +320,61 @@ export default function useChatFunctions({
     }
 
     logger.log('message_state', initialResponse);
-    const submission: TSubmission = {
-      conversation: {
-        ...conversation,
-        conversationId,
-      },
-      endpointOption,
-      userMessage: {
-        ...currentMsg,
-        responseMessageId,
-        overrideParentMessageId: isRegenerate ? messageId : null,
-      },
-      messages: currentMessages,
-      isEdited: isEditOrContinue,
-      isContinued,
-      isRegenerate,
-      initialResponse,
-      isTemporary,
-      ephemeralAgent,
-      editedContent,
-      addedConvo,
-    };
+    const baseMessages = isRegenerate
+      ? [...currentMessages, initialResponse]
+      : [...currentMessages, currentMsg, initialResponse];
 
-    if (isRegenerate) {
-      setMessages([...submission.messages, initialResponse]);
-    } else {
-      setMessages([...submission.messages, currentMsg, initialResponse]);
-    }
+    setMessages(baseMessages);
     if (index === 0 && setLatestMessage) {
       setLatestMessage(initialResponse);
     }
 
-    setSubmission(submission);
-    logger.dir('message_stream', submission, { depth: null });
+    setIsSubmitting(true);
+    setShowStopButton(true);
+
+    const mockDelay = 300 + Math.floor(Math.random() * 501);
+    const mockReply = getMockReply(text);
+
+    window.setTimeout(() => {
+      const responseContent =
+        initialResponse.content && initialResponse.content.length > 0
+          ? cloneDeep(initialResponse.content)
+          : [
+              {
+                type: ContentTypes.TEXT,
+                [ContentTypes.TEXT]: {
+                  value: mockReply,
+                },
+              },
+            ];
+
+      if (responseContent[0]?.type === ContentTypes.TEXT) {
+        responseContent[0][ContentTypes.TEXT] = {
+          value: mockReply,
+        };
+      }
+
+      const finalizedResponse: TMessage = {
+        ...initialResponse,
+        text: mockReply,
+        content: responseContent,
+        unfinished: false,
+        error: false,
+      };
+
+      const nextMessages = baseMessages.map((message) =>
+        message.messageId === initialResponse.messageId ? finalizedResponse : message,
+      );
+
+      setMessages(nextMessages);
+      if (index === 0 && setLatestMessage) {
+        setLatestMessage(finalizedResponse);
+      }
+
+      setIsSubmitting(false);
+      setShowStopButton(false);
+      setSubmission(null);
+    }, mockDelay);
   };
 
   const regenerate = ({ parentMessageId }, options?: { addedConvo?: TConversation | null }) => {
