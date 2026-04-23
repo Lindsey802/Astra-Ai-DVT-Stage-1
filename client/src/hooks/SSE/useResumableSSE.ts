@@ -27,6 +27,7 @@ import { useAuthContext } from '~/hooks/AuthContext';
 import useEventHandlers from './useEventHandlers';
 import { clearAllDrafts } from '~/utils';
 import store from '~/store';
+import { isFrontendOnlyMode } from '~/utils/frontendOnly';
 
 type ChatHelpers = Pick<
   EventHandlerParams,
@@ -639,6 +640,68 @@ export default function useResumableSSE(
       submissionRef.current = null;
       return;
     }
+
+    if (isFrontendOnlyMode()) {
+      const runId = v4();
+      const mockResponse = `Hello, I am Astra (mock response). You said: ${submission.userMessage?.text ?? ''}`;
+      const mockUserMessage = {
+        ...submission.userMessage,
+        conversationId: submission.conversation?.conversationId ?? 'mock-conversation',
+      };
+      const initialResponse = {
+        ...(submission.initialResponse as TMessage),
+        parentMessageId: mockUserMessage.messageId,
+        messageId: `mock-${runId}`,
+        conversationId: mockUserMessage.conversationId,
+      };
+
+      clearStepMaps();
+      setActiveRunId(runId);
+      setAbortScroll(false);
+      setIsSubmitting(true);
+      setShowStopButton(true);
+
+      createdHandler(
+        {
+          created: true,
+          message: mockUserMessage,
+        },
+        { ...submission, userMessage: mockUserMessage } as EventSubmission,
+      );
+
+      const timeoutId = window.setTimeout(() => {
+        messageHandler(mockResponse, {
+          ...submission,
+          userMessage: mockUserMessage,
+          initialResponse,
+        } as EventSubmission);
+
+        finalHandler(
+          {
+            final: true,
+            conversation: {
+              ...submission.conversation,
+              conversationId: mockUserMessage.conversationId,
+            },
+            requestMessage: mockUserMessage,
+            responseMessage: {
+              ...initialResponse,
+              text: mockResponse,
+            },
+          },
+          { ...submission, userMessage: mockUserMessage, initialResponse } as EventSubmission,
+        );
+
+        setIsSubmitting(false);
+        setShowStopButton(false);
+      }, 1000);
+
+      return () => {
+        window.clearTimeout(timeoutId);
+      };
+    }
+
+
 
     const resumeStreamId = (submission as TSubmission & { resumeStreamId?: string }).resumeStreamId;
     console.log('[ResumableSSE] Effect triggered', {
